@@ -3,42 +3,41 @@
 set -euo pipefail
 
 CODE=your-project-code
-# The card in the AI zone is presented as a vGPU, which the open kernel
-# module in the base image refuses to drive. This is the GRID build.
-DRIVER=gs://nvidia-drivers-us-public/GRID/vGPU20.2/NVIDIA-Linux-x86_64-595.91.07-grid.run
-
-meta() {
-  curl -sf -H "Metadata-Flavor: Google" \
-    "http://metadata.google.internal/computeMetadata/v1/instance/$1"
-}
+# Blackwell needs the R580 branch and its OPEN kernel module; the
+# proprietary one loads but then refuses the device. The kernel is built
+# with gcc-12, so the module has to be too, or the build fails on a flag
+# gcc-11 does not know.
+DRIVER=https://storage.googleapis.com/nvidia-drivers-us-public/GRID/vGPU19.6/NVIDIA-Linux-x86_64-580.178.04-grid.run
 
 export HF_HOME=/opt/hf
-export HF_TOKEN=$(meta attributes/hf-token || true)
+VENV=/opt/venv
 
 mkdir -p /opt/imgen $HF_HOME
 
 if ! nvidia-smi >/dev/null 2>&1; then
   apt-get update
-  apt-get install -y gcc make "linux-headers-$(uname -r)"
-  gcloud storage cp "$DRIVER" /tmp/grid.run
-  # Replaces the image's open module, which cannot drive a vGPU.
-  bash /tmp/grid.run --silent
+  apt-get install -y gcc gcc-12 make python3-venv "linux-headers-$(uname -r)"
+  curl -sS -o /tmp/grid.run "$DRIVER"
+  CC=gcc-12 bash /tmp/grid.run --silent --kernel-module-type=open
+  modprobe nvidia
   nvidia-smi
 fi
 
 gcloud storage cp "gs://$CODE/src.tar.gz" - | tar xz -C /opt/imgen
 
+[ -d $VENV ] || python3 -m venv $VENV
+
 if [ ! -f /opt/imgen/.deps ]; then
-  /opt/conda/bin/pip install -r /opt/imgen/requirements-gpu.txt
+  $VENV/bin/pip install -r /opt/imgen/requirements-gpu.txt
   touch /opt/imgen/.deps
 fi
 
 # Weights land on the local disk, pinned. The disk survives preemption,
 # so only the first boot pays for this.
-/opt/conda/bin/python - <<'PY'
+$VENV/bin/python - <<'PY'
 import config
 from huggingface_hub import snapshot_download
 snapshot_download(config.MODEL, revision=config.MODEL_REVISION)
 PY
 
-cd /opt/imgen && exec /opt/conda/bin/python serve.py
+cd /opt/imgen && exec $VENV/bin/python serve.py

@@ -5,7 +5,7 @@ ZONE=europe-west4-ai1a
 NETWORK=imgen
 SUBNET=imgen
 VM=imgen-gpu
-VM_TYPE=g4-standard-12
+VM_TYPE=g4-standard-24
 ACCELERATOR=type=nvidia-rtx-pro-6000,count=1
 DISK_GB=200
 BUCKET=your-project-images

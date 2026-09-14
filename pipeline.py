@@ -77,10 +77,10 @@ def generate(pipe, params: Params) -> list[tuple[int, object]]:
         prompt=params.prompt,
         negative_prompt=params.negative_prompt or None,
         num_inference_steps=params.steps,
-        guidance_scale=params.guidance,
         width=params.width,
         height=params.height,
         num_images_per_prompt=params.count,
         generator=generators,
+        **{config.GUIDANCE_PARAM: params.guidance},
     )
     return list(zip(seeds, pipe(**arguments).images))
