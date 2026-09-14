@@ -1,12 +1,12 @@
 # Mirrors config.py. Sourced by every script in this directory.
 PROJECT=your-gcp-project
 REGION=europe-west4
-ZONE=europe-west4-a
+ZONE=europe-west4-ai1a
 NETWORK=imgen
 SUBNET=imgen
 VM=imgen-gpu
-VM_TYPE=a2-highgpu-1g
-ACCELERATOR=type=nvidia-tesla-a100,count=1
+VM_TYPE=g4-standard-12
+ACCELERATOR=type=nvidia-rtx-pro-6000,count=1
 DISK_GB=200
 BUCKET=your-project-images
 CODE=your-project-code
