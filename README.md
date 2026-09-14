@@ -86,28 +86,34 @@ service answers 502 until the consent screen is configured once by hand
 under *Google Auth Platform → Branding* in the Console. Nothing is
 exposed in the meantime: unauthenticated requests do not reach the app.
 
-**A100 quota.** A new project gets no GPU quota, and the automated
-request for one A100 in europe-west4 came back *Quota request denied* —
-as did us-central1. `GPUS_ALL_REGIONS` was granted. Appeal from *IAM &
-Admin → Quotas* in the Console; new projects are usually approved once
-there is some billing history.
+**GPU quota.** A new project gets none, and the automated request is
+denied for every card that matters. Appeal from *IAM & Admin → Quotas*
+in the Console; new projects are usually approved once there is some
+billing history.
 
 ## The card
 
-The design wants enough VRAM to run at native precision with no offload
-and no quantisation, which rules out the 24 GB cards. Three ways to get
-there on Compute Engine:
+Everything happens in europe-west4, which has all three candidates. The
+design wants enough VRAM to run at native precision with no offload and
+no quantisation, which rules out the 24 GB cards.
 
-| card | VRAM | quota | availability |
+| card | VRAM | zones | quota |
 | --- | --- | --- | --- |
-| A100 40GB (`a2-highgpu-1g`) | 40 GB | **denied**, needs an appeal | good |
-| RTX PRO 6000 (`g4-standard-12`) | 96 GB | granted by default | **stocked out** |
-| L4 (`g2-standard-8`) | 24 GB | granted by default | good, but too small |
+| RTX PRO 6000 (`g4-standard-12`) | 96 GB | a, b, c, ai1a | denied |
+| A100 40GB (`a2-highgpu-1g`) | 40 GB | a, b | denied |
+| L4 (`g2-standard-8`) | 24 GB | a, b, c | granted, works today |
 
-The RTX PRO 6000 is the interesting one: its quota needs no appeal, and
-96 GB is more headroom than the A100 has. Creating one fails with
-`reason: stockout` rather than a quota error, in all of europe-west1-b,
-europe-west1-c, us-central1-b/c/f, us-east1-b/d and us-west1-a/b — so it
-is worth retrying, since stockouts move hour to hour. It lives in
-europe-west1, not europe-west4, so taking it means moving the subnet and
-the Cloud Run service to match.
+The RTX PRO 6000 is the one worth appealing for: 96 GB is more headroom
+than the A100 has, and it is in more zones. Its quota is not the
+obviously-named `NVIDIA-RTX-PRO-6000-VWS-GPUS` — that one is 1 by
+default and is not what gets checked. The real limit is
+`GPUS-PER-GPU-FAMILY-per-project-region` with `gpu_family:
+NVIDIA_RTX_PRO_6000`, and it is 0. Only `europe-west4-ai1a` reports this
+honestly; the ordinary zones fail with a stockout message first, which
+hides the quota underneath it.
+
+L4 quota is real: a `g2-standard-8` creates and runs today. Capacity
+moves between zones — europe-west4-a and -b were stocked out while -c
+had stock. But 24 GB will not hold FLUX.1-dev at bf16 without the
+offload this design rules out, so taking it means choosing a smaller
+model, which is an M0 decision rather than a deployment one.
