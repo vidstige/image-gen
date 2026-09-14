@@ -6,8 +6,8 @@ single GPU VM on demand, proxies generation to it, and lets it shut
 itself down again; images land in a bucket that doubles as the gallery.
 
 Built on diffusers and Flask, running on Google Cloud: Cloud Run for the
-front door, one `a2-highgpu-1g` (A100 40GB) VM for the model, and Cloud
-Storage for the images. There is no queue and no database — one GPU
+front door, one spot `g4-standard-12` (RTX PRO 6000, 96 GB) VM for the
+model, and Cloud Storage for the images. There is no queue and no database — one GPU
 serves one person serially, and object names carry the metadata.
 
     browser ──Google login (IAP)──► Cloud Run   [no GPU, scales to zero]
@@ -57,9 +57,13 @@ Tests, which are CPU-only and take a second:
 
 ## Costs
 
-The GPU is the whole bill: about $3.75/hour while running, nothing while
-stopped. It stops itself after ten idle minutes, the page shows the rate
-before you start it, and a budget alert fires at $10, $18 and $20.
+The GPU is the whole bill: about $0.92/hour while running, nothing while
+stopped except the disk. It stops itself after ten idle minutes, the page
+shows the rate before you start it, and a budget alert fires at 50%, 90%
+and 100% of 200 SEK.
+
+That figure is the spot price from the billing catalogue: 12 vCPU at
+$0.02232, 45 GiB at $0.00268 and one card at $0.52640 per hour.
 
 ## Notes
 
@@ -93,27 +97,31 @@ billing history.
 
 ## The card
 
-Everything happens in europe-west4, which has all three candidates. The
-design wants enough VRAM to run at native precision with no offload and
-no quantisation, which rules out the 24 GB cards.
+Everything runs in europe-west4. The design wants enough VRAM for native
+precision with no offload and no quantisation, which rules out the 24 GB
+cards, and on-demand quota for everything larger is denied — on a new
+project and on an old one with years of billing alike, so it is not
+about history. Appealing through the API is denied too.
 
-| card | VRAM | zones | quota |
+Spot draws on a different pool and works today. That suits this design:
+the VM is already off by default, already started on demand, and already
+stops itself when idle, so preemption mostly means it turned off early.
+It is set to stop rather than be deleted, so the weights on its disk
+survive.
+
+| card | VRAM | on-demand | spot |
 | --- | --- | --- | --- |
-| RTX PRO 6000 (`g4-standard-12`) | 96 GB | a, b, c, ai1a | denied |
-| A100 40GB (`a2-highgpu-1g`) | 40 GB | a, b | denied |
-| L4 (`g2-standard-8`) | 24 GB | a, b, c | granted, works today |
+| RTX PRO 6000 (`g4-standard-12`) | 96 GB | denied | **works** |
+| A100 40GB (`a2-highgpu-1g`) | 40 GB | denied | — |
+| L4 (`g2-standard-8`) | 24 GB | granted, too small | — |
 
-The RTX PRO 6000 is the one worth appealing for: 96 GB is more headroom
-than the A100 has, and it is in more zones. Its quota is not the
-obviously-named `NVIDIA-RTX-PRO-6000-VWS-GPUS` — that one is 1 by
-default and is not what gets checked. The real limit is
-`GPUS-PER-GPU-FAMILY-per-project-region` with `gpu_family:
-NVIDIA_RTX_PRO_6000`, and it is 0. Only `europe-west4-ai1a` reports this
-honestly; the ordinary zones fail with a stockout message first, which
-hides the quota underneath it.
+Three things about this card are not guessable from the machine type.
+G4 rejects `pd-balanced` and needs `hyperdisk-balanced`. The
+`pytorch-latest-gpu` image family no longer exists; the current one is
+`common-cu129-ubuntu-2204-nvidia-580`. And only `europe-west4-ai1a` has
+capacity, where the card is presented as a vGPU that the base image's
+open kernel module refuses to drive — hence the GRID driver install in
+`infra/startup.sh`.
 
-L4 quota is real: a `g2-standard-8` creates and runs today. Capacity
-moves between zones — europe-west4-a and -b were stocked out while -c
-had stock. But 24 GB will not hold FLUX.1-dev at bf16 without the
-offload this design rules out, so taking it means choosing a smaller
-model, which is an M0 decision rather than a deployment one.
+If the quota is ever granted, moving back to on-demand is one flag in
+`infra/vm.sh`.
