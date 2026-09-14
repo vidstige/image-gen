@@ -1,0 +1,2 @@
+# 10-20 prompts representative of actual intended use, one per line.
+# Not showcase prompts. Fill this in before renting the GPU hour.
