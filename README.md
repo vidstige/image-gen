@@ -90,9 +90,24 @@ exposed in the meantime: unauthenticated requests do not reach the app.
 request for one A100 in europe-west4 came back *Quota request denied* —
 as did us-central1. `GPUS_ALL_REGIONS` was granted. Appeal from *IAM &
 Admin → Quotas* in the Console; new projects are usually approved once
-there is some billing history. `infra/vm.sh` works as soon as it lands.
+there is some billing history.
 
-The alternative is an L4, whose quota is 1 by default. It has 24 GB, so
-FLUX.1-dev will not fit at bf16 without the offload this design rules
-out — taking it means picking a smaller model, and that is an M0
-decision, not a deployment one.
+## The card
+
+The design wants enough VRAM to run at native precision with no offload
+and no quantisation, which rules out the 24 GB cards. Three ways to get
+there on Compute Engine:
+
+| card | VRAM | quota | availability |
+| --- | --- | --- | --- |
+| A100 40GB (`a2-highgpu-1g`) | 40 GB | **denied**, needs an appeal | good |
+| RTX PRO 6000 (`g4-standard-12`) | 96 GB | granted by default | **stocked out** |
+| L4 (`g2-standard-8`) | 24 GB | granted by default | good, but too small |
+
+The RTX PRO 6000 is the interesting one: its quota needs no appeal, and
+96 GB is more headroom than the A100 has. Creating one fails with
+`reason: stockout` rather than a quota error, in all of europe-west1-b,
+europe-west1-c, us-central1-b/c/f, us-east1-b/d and us-west1-a/b — so it
+is worth retrying, since stockouts move hour to hour. It lives in
+europe-west1, not europe-west4, so taking it means moving the subnet and
+the Cloud Run service to match.
