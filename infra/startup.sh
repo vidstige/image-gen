@@ -19,9 +19,11 @@ mkdir -p /opt/imgen $HF_HOME
 
 if ! nvidia-smi >/dev/null 2>&1; then
   apt-get update
-  apt-get install -y gcc make dkms "linux-headers-$(uname -r)"
+  apt-get install -y gcc make "linux-headers-$(uname -r)"
   gcloud storage cp "$DRIVER" /tmp/grid.run
-  bash /tmp/grid.run --silent --dkms
+  # Replaces the image's open module, which cannot drive a vGPU.
+  bash /tmp/grid.run --silent
+  nvidia-smi
 fi
 
 gcloud storage cp "gs://$CODE/src.tar.gz" - | tar xz -C /opt/imgen
