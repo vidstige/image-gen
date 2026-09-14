@@ -1,0 +1,8 @@
+torch==2.8.0
+diffusers==0.35.1
+transformers==4.56.1
+accelerate==1.10.1
+sentencepiece==0.2.0
+protobuf==6.32.0
+flask==3.1.2
+google-cloud-storage==3.4.0
