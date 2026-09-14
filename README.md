@@ -125,3 +125,22 @@ open kernel module refuses to drive — hence the GRID driver install in
 
 If the quota is ever granted, moving back to on-demand is one flag in
 `infra/vm.sh`.
+
+## M0 result
+
+Four images from Qwen-Image are in the bucket and in `m0/`. The model is
+ungated, Apache-2.0, and carries no safety classifier, which is why it
+was chosen over FLUX.1-dev without a HuggingFace token.
+
+Photoreal work clears the bar comfortably: skin texture, hands, fog and
+raking light all hold up at 1328x1328 and 50 steps. Line art is clean.
+Text inside an image is not reliable, and a prompt asking for labels
+gets confident gibberish, so treat legible text as out of reach until
+tested properly.
+
+One hard constraint the machine type does not advertise: `g4-standard-24`
+reports a 48 GB vGPU slice, not the card's full 96 GB. Qwen-Image needs
+about 55 GB for the transformer and text encoder together, so it does
+not fit and these four were generated with CPU offload, which the design
+otherwise rules out. Either a shape that exposes the whole card or a
+model that fits 48 GB is needed before M1 is really passed.
