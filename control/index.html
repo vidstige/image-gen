@@ -1,0 +1,114 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>imgen</title>
+<style>
+  body { font: 15px system-ui; max-width: 60rem; margin: 2rem auto;
+         padding: 0 1rem; background: #111; color: #eee; }
+  label { display: block; margin: .6rem 0 .2rem; color: #aaa; }
+  input, textarea, button { font: inherit; width: 100%; padding: .4rem;
+         background: #1c1c1c; color: #eee; border: 1px solid #333; }
+  .row { display: flex; gap: .6rem; }
+  .row > * { flex: 1; }
+  button { cursor: pointer; margin-top: 1rem; }
+  #gallery { display: grid; gap: .5rem; margin-top: 1.5rem;
+         grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+  #gallery img { width: 100%; display: block; }
+  .note { color: #888; font-size: .85em; }
+  .error { color: #f66; white-space: pre-wrap; }
+</style>
+
+<h1>imgen</h1>
+<p id="power" class="note">…</p>
+<button id="toggle"></button>
+
+<label>Prompt</label>
+<textarea id="prompt" rows="4"></textarea>
+<p id="tokens" class="note"></p>
+
+<label>Negative prompt</label>
+<input id="negative_prompt">
+
+<div class="row">
+  <div><label>Seed</label><input id="seed" type="number" value="0"></div>
+  <div><label>Steps</label><input id="steps" type="number"></div>
+  <div><label>Guidance</label><input id="guidance" type="number" step=".1"></div>
+</div>
+<div class="row">
+  <div><label>Width</label><input id="width" type="number"></div>
+  <div><label>Height</label><input id="height" type="number"></div>
+  <div><label>Best of</label><input id="count" type="number"></div>
+</div>
+
+<button id="go">Generate</button>
+<p id="status" class="note"></p>
+<p id="error" class="error"></p>
+<div id="gallery"></div>
+
+<script>
+const defaults = __DEFAULTS__;
+const fields = ["negative_prompt", "seed", "steps", "guidance",
+                "width", "height", "count"];
+for (const [key, value] of Object.entries(defaults))
+  if (document.getElementById(key)) document.getElementById(key).value = value;
+
+const $ = id => document.getElementById(id);
+const say = (id, text) => $(id).textContent = text;
+
+async function call(path, body) {
+  const options = body
+    ? {method: "POST", headers: {"Content-Type": "application/json"},
+       body: JSON.stringify(body)}
+    : {};
+  const response = await fetch(path, options);
+  const data = await response.json();
+  if (!response.ok) throw new Error(`${data.error}: ${data.message}`);
+  return data;
+}
+
+let running = false;
+
+async function power() {
+  const data = await call("/power");
+  running = data.state === "RUNNING";
+  say("power", `GPU ${data.state.toLowerCase()} — ` +
+      `$${defaults.cost_per_hour.toFixed(2)}/h while on, ` +
+      `stops itself after ${defaults.idle_minutes} min idle` +
+      (data.token_limit ? ` — prompts cut at ${data.token_limit} tokens` : ""));
+  say("toggle", running ? "Stop GPU" : `Start GPU ($${defaults.cost_per_hour.toFixed(2)}/h)`);
+}
+
+$("toggle").onclick = async () => {
+  say("toggle", "…");
+  await call("/power", {on: !running});
+  setTimeout(power, 3000);
+};
+
+$("go").onclick = async () => {
+  say("error", "");
+  say("status", running ? "generating…" : "starting GPU, then generating…");
+  try {
+    const body = {prompt: $("prompt").value};
+    for (const f of fields) body[f] = $(f).value;
+    const data = await call("/generate", body);
+    say("status", `${data.images.length} images in ${data.seconds}s ` +
+        `(seeds ${data.images.map(i => i.seed).join(", ")})`);
+    if (data.tokens > data.token_limit)
+      say("tokens", `prompt cut: ${data.tokens} of ${data.token_limit} tokens`);
+    await gallery();
+  } catch (e) {
+    say("status", "");
+    say("error", e.message);
+  }
+  power();
+};
+
+async function gallery() {
+  const data = await call("/gallery");
+  $("gallery").innerHTML = data.images.map(i =>
+    `<a href="/image/${i.name}" title="${i.prompt || ""} [seed ${i.seed}]">
+       <img loading="lazy" src="/image/${i.name}"></a>`).join("");
+}
+
+power();
+gallery();
+</script>
