@@ -42,10 +42,18 @@ Pick a model first, on rented GPU time, before provisioning anything:
 Then set up the project, ship the code, create the VM and deploy the
 front end. `HF_TOKEN` is needed because the weights are gated.
 
-    ./infra/setup.sh
-    ./infra/push.sh
-    HF_TOKEN=hf_... ./infra/vm.sh
-    ./infra/deploy.sh
+    ./infra/setup.sh    # once per project: network, buckets, IAM, budget
+    ./infra/push.sh     # ship the code the VM runs
+    ./infra/vm.sh       # create the GPU VM
+    ./infra/deploy.sh   # build and deploy the front end
+
+`vm.sh` needs nothing but `push.sh` having run first. The VM installs
+its own driver, builds its venv, downloads the weights and starts
+serving, all from `infra/startup.sh`, which runs on every boot and skips
+whatever is already on the disk. The first boot takes about twenty
+minutes, almost all of it the 54 GB of weights; later boots take about a
+minute. To ship new server code afterwards, `./infra/push.sh` uploads it
+and restarts the VM into it.
 
 One image from the command line, on the box:
 
@@ -57,13 +65,15 @@ Tests, which are CPU-only and take a second:
 
 ## Costs
 
-The GPU is the whole bill: about $0.92/hour while running, nothing while
+The GPU is the whole bill: about $2.08/hour while running, nothing while
 stopped except the disk. It stops itself after ten idle minutes, the page
 shows the rate before you start it, and a budget alert fires at 50%, 90%
 and 100% of 200 SEK.
 
-That figure is the spot price from the billing catalogue: 12 vCPU at
-$0.02232, 45 GiB at $0.00268 and one card at $0.52640 per hour.
+That figure is the spot price from the billing catalogue: 48 vCPU at
+$0.02232, 180 GiB at $0.00268 and one card at $0.52640 per hour. An
+image at the default 50 steps takes 48 seconds, so it costs about three
+cents.
 
 ## Notes
 

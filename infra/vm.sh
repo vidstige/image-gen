@@ -17,7 +17,6 @@ gcloud compute instances create $VM --project=$PROJECT --zone=$ZONE \
   --subnet=$SUBNET --no-address \
   --scopes=cloud-platform \
   --service-account=imgen-gpu@$PROJECT.iam.gserviceaccount.com \
-  --metadata=install-nvidia-driver=False \
   --metadata-from-file=startup-script=startup.sh
 
 gcloud compute instances add-iam-policy-binding $VM --zone=$ZONE \
