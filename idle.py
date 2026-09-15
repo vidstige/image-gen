@@ -21,10 +21,13 @@ def idle_seconds() -> float:
 
 
 def watch() -> None:
-    """Counts from boot, so a VM nobody talks to still stops itself."""
+    """Counts from boot, so a VM nobody talks to still stops itself.
+
+    The server runs as root from the boot script, so no sudo.
+    """
     while idle_seconds() < config.IDLE_MINUTES * 60:
         time.sleep(CHECK_SECONDS)
-    subprocess.run(["sudo", "shutdown", "-h", "now"])
+    subprocess.run(["shutdown", "-h", "now"])
 
 
 def start() -> None:

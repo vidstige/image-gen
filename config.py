@@ -7,7 +7,7 @@ NETWORK = "imgen"
 SUBNET = "imgen"
 
 VM_NAME = "imgen-gpu"
-VM_TYPE = "g4-standard-24"
+VM_TYPE = "g4-standard-48"
 VM_ACCELERATOR = "type=nvidia-rtx-pro-6000,count=1"
 VM_DISK_GB = 200
 
@@ -16,8 +16,10 @@ PORT = 8000
 
 # Shown in the UI so the price of the expensive action is visible before
 # it is taken. Spot, europe-west4, from the billing catalogue:
-# 24 vCPU x 0.02232 + 90 GiB x 0.00268 + one card at 0.52640.
-VM_COST_PER_HOUR = 1.30
+# 48 vCPU x 0.02232 + 180 GiB x 0.00268 + one card at 0.52640.
+# Smaller g4 shapes get a 48 GB vGPU slice; this one gets the whole
+# 96 GB card, which is what lets the model run without offload.
+VM_COST_PER_HOUR = 2.08
 IDLE_MINUTES = 10
 
 # Pinned to a revision so weights cannot change under us. Defaults below are

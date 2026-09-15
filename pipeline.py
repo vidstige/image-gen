@@ -37,7 +37,17 @@ def load():
 
 
 def token_limit(pipe) -> int:
-    """Prompt tokens the text encoder keeps. Longer prompts are cut."""
+    """Prompt tokens the pipeline keeps. Longer prompts are cut.
+
+    The tokenizer's own `model_max_length` is not the answer: Qwen2's is
+    131072 while the pipeline truncates at its `max_sequence_length`
+    default, two orders of magnitude lower. Take the pipeline's.
+    """
+    sequence = inspect.signature(pipe.__call__).parameters.get(
+        "max_sequence_length"
+    )
+    if sequence is not None and sequence.default is not inspect.Parameter.empty:
+        return sequence.default
     return min(
         t.model_max_length
         for t in (pipe.tokenizer, getattr(pipe, "tokenizer_2", None))
