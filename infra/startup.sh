@@ -10,6 +10,7 @@ set -euo pipefail
 DRIVER=https://storage.googleapis.com/nvidia-drivers-us-public/GRID/vGPU19.6/NVIDIA-Linux-x86_64-580.178.04-grid.run
 VENV=/opt/venv
 SRC=/opt/imgen
+DEPS=/opt/.deps
 export HF_HOME=/opt/hf
 
 # Which bucket holds the code is the one thing that cannot come from the
@@ -18,7 +19,7 @@ export HF_HOME=/opt/hf
 CODE=$(curl -sf -H "Metadata-Flavor: Google" \
   http://metadata.google.internal/computeMetadata/v1/instance/attributes/code-bucket)
 
-mkdir -p $SRC $HF_HOME
+mkdir -p $HF_HOME
 
 if ! nvidia-smi >/dev/null 2>&1; then
   apt-get update -qq
@@ -29,11 +30,14 @@ if ! nvidia-smi >/dev/null 2>&1; then
 fi
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
+# Emptied first, so what runs is exactly what was shipped and a file
+# that has been renamed or deleted does not linger to shadow it.
+rm -rf $SRC && mkdir -p $SRC
 gcloud storage cat "gs://$CODE/src.tar.gz" | tar xz -C $SRC
 cd $SRC
 
 [ -d $VENV ] || python3 -m venv $VENV
-[ -f .deps ] || { $VENV/bin/pip install -q -r gpu/requirements-gpu.txt && touch .deps; }
+[ -f $DEPS ] || { $VENV/bin/pip install -q -r gpu/requirements-gpu.txt && touch $DEPS; }
 
 # Weights land on the disk, pinned. Only the first boot pays for this.
 PYTHONPATH=$SRC $VENV/bin/python - <<'PY'
