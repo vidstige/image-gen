@@ -103,12 +103,19 @@ predefined roles that would cover it grant far more.
 
 ## Two steps Google will not let a script do
 
-**The IAP consent screen.** IAP is enabled on the Cloud Run service and
-the account is allowlisted, but a project outside an Organization cannot
-create its OAuth brand from the API — that API is shut down — so the
-service answers 502 until the consent screen is configured once by hand
-under *Google Auth Platform → Branding* in the Console. Nothing is
-exposed in the meantime: unauthenticated requests do not reach the app.
+**The IAP OAuth client.** IAP is enabled on the Cloud Run service and
+the account is allowlisted, but IAP needs an OAuth client to run the
+sign-in, and it has none, so the service answers 502 with *Empty Google
+Account OAuth client ID(s)/secret(s)*. The Google-managed client IAP
+would normally use exists only for projects inside an organisation, and
+OAuth clients cannot be created through any API — the IAP OAuth Admin
+APIs were shut down in March 2026. So one client has to be made by hand
+in the console, once. Then:
+
+    ./infra/iap.sh CLIENT_ID CLIENT_SECRET
+
+Nothing is exposed in the meantime: unauthenticated requests do not
+reach the app.
 
 **GPU quota.** A new project gets none, and the automated request is
 denied for every card that matters. Appeal from *IAM & Admin → Quotas*
