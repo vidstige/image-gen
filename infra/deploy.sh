@@ -7,6 +7,7 @@ gcloud run deploy $SERVICE --source=. --project=$PROJECT --region=$REGION --quie
   --service-account=imgen-control@$PROJECT.iam.gserviceaccount.com \
   --network=$NETWORK --subnet=$SUBNET --vpc-egress=private-ranges-only \
   --no-allow-unauthenticated --iap \
+  --set-env-vars=IMGEN_PROJECT=$PROJECT,IMGEN_BUCKET=$BUCKET,IMGEN_USER=$USER_ACCOUNT \
   --cpu=1 --memory=512Mi --min-instances=0 --max-instances=1 --timeout=900
 
 gcloud beta iap web add-iam-policy-binding \

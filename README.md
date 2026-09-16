@@ -33,6 +33,19 @@ serves one person serially, and object names carry the metadata.
 | `infra/` | provisioning and deployment scripts |
 | `m0/` | disposable model-comparison script |
 
+## Configuration
+
+Everything that names a particular project lives in `.env`, which is not
+committed, so the rest of the repo is publishable as it stands. Copy the
+example and fill it in:
+
+    cp .env.example .env
+
+`config.py` reads it, `infra/env.sh` sources it for the shell scripts,
+`deploy.sh` passes the values to Cloud Run as environment variables, and
+the GPU VM learns its code bucket from instance metadata and the rest
+from the `.env` that `push.sh` ships alongside the source.
+
 ## Running it
 
 Pick a model first, on rented GPU time, before provisioning anything:
@@ -85,7 +98,7 @@ delete it.
 
 One image from the command line, on the box:
 
-    ./generate.py "a prompt" --seed 1 --out gs://your-project-images/test.png
+    ./generate.py "a prompt" --seed 1 --out gs://$IMGEN_BUCKET/test.png
 
 Tests, which are CPU-only and take a second:
 

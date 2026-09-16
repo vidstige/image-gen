@@ -1,6 +1,25 @@
-"""Shared configuration. Imported by the CLI, the API and the front end."""
+"""Shared configuration. Imported by the CLI, the API and the front end.
 
-PROJECT = "your-gcp-project"
+Everything that names a particular project lives in a local .env, so
+this file carries only settings worth publishing.
+"""
+
+import os
+from pathlib import Path
+
+
+def _load(path: Path) -> None:
+    for line in path.read_text().splitlines():
+        name, _, value = line.partition("=")
+        if name.strip() and not name.startswith("#"):
+            os.environ.setdefault(name.strip(), value.strip())
+
+
+_env = Path(__file__).with_name(".env")
+if _env.exists():
+    _load(_env)
+
+PROJECT = os.environ["IMGEN_PROJECT"]
 REGION = "europe-west4"
 ZONE = "europe-west4-ai1a"
 NETWORK = "imgen"
@@ -11,7 +30,7 @@ VM_TYPE = "g4-standard-48"
 VM_ACCELERATOR = "type=nvidia-rtx-pro-6000,count=1"
 VM_DISK_GB = 200
 
-BUCKET = "your-project-images"
+BUCKET = os.environ["IMGEN_BUCKET"]
 PORT = 8000
 
 # Smaller g4 shapes get a 48 GB vGPU slice; this one gets the whole

@@ -37,7 +37,7 @@ regardless of where the compute runs.
 ---
 
 ## Google Cloud Project
-Create a new Google Cloud Project for this named "your-gcp-project". Use my personal account "you@example.com". Feel free to spend a few dollars to test the service, but make the most of each test. Don't spend more than $20 for setting this up.
+Create a new Google Cloud Project for this named a name of your choosing. Use my personal account your personal account. Feel free to spend a few dollars to test the service, but make the most of each test. Don't spend more than $20 for setting this up.
 
 ---
 

@@ -1,3 +1,4 @@
 .git/
 __pycache__/
 m0/
+.env

@@ -4,7 +4,9 @@
 # and started again — or preempted — comes back in under a minute.
 set -euo pipefail
 
-CODE=gs://your-project-code/src.tar.gz
+# The bucket is not baked in; vm.sh passes it as instance metadata.
+CODE=$(curl -sf -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/attributes/code-bucket)
 # Blackwell needs the R580 branch and its OPEN kernel module. The
 # proprietary module loads and then refuses the device, and the kernel is
 # built with gcc-12, so the module has to be too.
@@ -24,7 +26,7 @@ if ! nvidia-smi >/dev/null 2>&1; then
 fi
 nvidia-smi --query-gpu=name,memory.total --format=csv,noheader
 
-gcloud storage cat $CODE | tar xz -C $SRC
+gcloud storage cat "gs://$CODE/src.tar.gz" | tar xz -C $SRC
 cd $SRC
 
 [ -d $VENV ] || python3 -m venv $VENV
