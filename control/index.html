@@ -104,6 +104,13 @@ const say = (id, text) => $(id).textContent = text;
 for (const [key, value] of Object.entries(defaults))
   if ($(key)) $(key).value = value;
 
+// The negative prompt is the one field worth carrying between visits.
+const REMEMBERED = "imgen.negative_prompt";
+const kept = localStorage.getItem(REMEMBERED);
+if (kept !== null) $("negative_prompt").value = kept;
+$("negative_prompt").oninput = () =>
+  localStorage.setItem(REMEMBERED, $("negative_prompt").value);
+
 async function call(path, body, method) {
   const options = body || method
     ? {method: method || "POST",
@@ -117,24 +124,32 @@ async function call(path, body, method) {
 }
 
 // --- GPU ---------------------------------------------------------------
-let running = false;
+const POLL_MS = 5000;
+const sleep = ms => new Promise(done => setTimeout(done, ms));
+
+let running = false;   // the VM is up
+let busy = false;      // the box is mid-generation
+let settling = false;  // the VM is starting or stopping
+let pending = false;   // a request from this page is still outstanding
+let watching = false;
 
 // Anything that is neither off nor serving is a transition; the button
 // stays out of the way until it settles.
-function show(state, loaded, busy) {
+function show(state, loaded, generating) {
   const off = state === "TERMINATED" || state === "SUSPENDED";
   running = state === "RUNNING";
-  const moving = !off && !(running && loaded);
+  busy = Boolean(generating);
+  settling = !off && !(running && loaded);
   const label = off ? "off"
     : running && loaded ? "running"
     : running ? "starting — loading model"
     : state === "STOPPING" || state === "SUSPENDING" ? "stopping"
     : "starting";
-  $("dot").className = "dot" + (moving ? " busy" : running ? " on" : "");
+  $("dot").className = "dot" + (settling ? " busy" : running ? " on" : "");
   say("state", `GPU ${label}`);
   say("work", running && loaded ? (busy ? "· generating" : "· idle") : "");
   say("toggle", running ? "Stop" : "Start");
-  $("toggle").disabled = moving;
+  $("toggle").disabled = settling;
 }
 
 async function power() {
@@ -150,22 +165,38 @@ $("toggle").onclick = async () => {
   say("state", on ? "GPU starting" : "GPU stopping");
   $("dot").className = "dot busy";
   await call("/power", {on});
-  power();
+  settling = true;
+  watch();
 };
 
-// The generate request can outlive its connection, so the gallery is
-// polled rather than refreshed only when that request returns.
-async function tick() {
+async function refresh() {
   await power();
   await gallery();
 }
 
-setInterval(tick, 5000);
+// Poll only while something is moving. A settled page asks for nothing,
+// but a generate request can outlive its own connection, so the loop
+// keeps going on the server's own busy flag rather than on this
+// page's request surviving.
+async function watch() {
+  if (watching) return;
+  watching = true;
+  try {
+    do {
+      await sleep(POLL_MS);
+      await refresh();
+    } while (pending || busy || settling);
+  } finally {
+    watching = false;
+  }
+}
 
 // --- generate ----------------------------------------------------------
 $("go").onclick = async () => {
   say("error", "");
   say("status", running ? "generating…" : "starting the GPU, then generating…");
+  pending = true;
+  watch();
   try {
     const body = {prompt: $("prompt").value};
     for (const f of fields) body[f] = $(f).value;
@@ -178,8 +209,9 @@ $("go").onclick = async () => {
   } catch (e) {
     say("status", "");
     say("error", e.message);
+  } finally {
+    pending = false;
   }
-  power();
 };
 
 // --- gallery and details -----------------------------------------------
@@ -233,5 +265,8 @@ async function gallery() {
 
 $("detail-close").onclick = () => $("detail").close();
 
-tick();
+// A page left open goes quiet; catch up when it is looked at again.
+window.addEventListener("focus", refresh);
+
+refresh();
 </script>

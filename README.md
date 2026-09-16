@@ -67,10 +67,17 @@ the model or stopping, and green once it is actually serving. Generating
 starts the VM on its own if it is off.
 
 Beside the lamp it says whether the box is idle or generating, which is
-the server's lock rather than a guess. The gallery polls too, so a
-finished image appears on its own — the generate request can easily
-outlive its own connection when the VM has to boot first, and waiting
-for it to return was losing pictures that had in fact been made.
+the server's lock rather than a guess. While anything is moving the page
+polls every five seconds and the gallery picks up finished images on its
+own; once everything has settled it stops asking. That matters because a
+generate request can easily outlive its own connection when the VM has
+to boot first, and waiting for it to return was losing pictures that had
+in fact been made. The loop therefore runs on the server's busy flag,
+not on this page's request surviving.
+
+The negative prompt is kept in the browser between visits. Note that the
+model's own published default is a single space; the default here is an
+ordinary English one, which is a deliberate departure.
 
 Clicking any image in the gallery opens it with the prompt, seed, steps,
 guidance, size, model and date it was made, and buttons to download or

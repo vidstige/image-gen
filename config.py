@@ -29,5 +29,8 @@ GUIDANCE = 4.0
 GUIDANCE_PARAM = "true_cfg_scale"
 WIDTH = 1328
 HEIGHT = 1328
-NEGATIVE_PROMPT = " "
+NEGATIVE_PROMPT = (
+    "worst quality, low quality, blurry, jpeg artifacts, 3d render, "
+    "bad anatomy, text, watermark"
+)
 BATCH = 4
