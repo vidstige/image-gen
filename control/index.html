@@ -17,7 +17,8 @@
   .gpu { display: flex; align-items: center; gap: .75rem;
          border: 1px solid #333; border-radius: 4px; padding: .7rem .9rem;
          margin-bottom: 1.2rem; }
-  .gpu .state { font-weight: 600; flex: 1; }
+  .gpu .state { font-weight: 600; }
+  .gpu .work { color: #aaa; flex: 1; }
   .gpu button { width: auto; padding: .35rem 1rem; }
   .dot { width: .7rem; height: .7rem; border-radius: 50%;
          background: #666; flex: none; }
@@ -54,6 +55,7 @@
 <div class="gpu">
   <span id="dot" class="dot"></span>
   <span id="state" class="state">checking…</span>
+  <span id="work" class="work"></span>
   <button id="toggle" disabled>…</button>
 </div>
 
@@ -119,24 +121,25 @@ let running = false;
 
 // Anything that is neither off nor serving is a transition; the button
 // stays out of the way until it settles.
-function show(state, loaded) {
+function show(state, loaded, busy) {
   const off = state === "TERMINATED" || state === "SUSPENDED";
   running = state === "RUNNING";
-  const busy = !off && !(running && loaded);
+  const moving = !off && !(running && loaded);
   const label = off ? "off"
     : running && loaded ? "running"
     : running ? "starting — loading model"
     : state === "STOPPING" || state === "SUSPENDING" ? "stopping"
     : "starting";
-  $("dot").className = "dot" + (busy ? " busy" : running ? " on" : "");
+  $("dot").className = "dot" + (moving ? " busy" : running ? " on" : "");
   say("state", `GPU ${label}`);
+  say("work", running && loaded ? (busy ? "· generating" : "· idle") : "");
   say("toggle", running ? "Stop" : "Start");
-  $("toggle").disabled = busy;
+  $("toggle").disabled = moving;
 }
 
 async function power() {
   const data = await call("/power");
-  show(data.state, Boolean(data.token_limit));
+  show(data.state, Boolean(data.token_limit), data.busy);
   if (data.token_limit)
     say("tokens", `prompts are cut past ${data.token_limit} tokens`);
 }
@@ -150,7 +153,14 @@ $("toggle").onclick = async () => {
   power();
 };
 
-setInterval(power, 5000);
+// The generate request can outlive its connection, so the gallery is
+// polled rather than refreshed only when that request returns.
+async function tick() {
+  await power();
+  await gallery();
+}
+
+setInterval(tick, 5000);
 
 // --- generate ----------------------------------------------------------
 $("go").onclick = async () => {
@@ -202,8 +212,14 @@ function escape_html(text) {
   return node.innerHTML;
 }
 
+let shown = "";
+
 async function gallery() {
   const data = await call("/gallery");
+  // Rebuilding unconditionally would reload every thumbnail each tick.
+  const signature = data.images.map(i => i.name).join("|");
+  if (signature === shown) return;
+  shown = signature;
   $("gallery").innerHTML = "";
   for (const image of data.images) {
     const img = document.createElement("img");
@@ -217,6 +233,5 @@ async function gallery() {
 
 $("detail-close").onclick = () => $("detail").close();
 
-power();
-gallery();
+tick();
 </script>

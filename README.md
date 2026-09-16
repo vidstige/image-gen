@@ -66,6 +66,12 @@ the top, polled every five seconds, amber while it is starting, loading
 the model or stopping, and green once it is actually serving. Generating
 starts the VM on its own if it is off.
 
+Beside the lamp it says whether the box is idle or generating, which is
+the server's lock rather than a guess. The gallery polls too, so a
+finished image appears on its own — the generate request can easily
+outlive its own connection when the VM has to boot first, and waiting
+for it to return was losing pictures that had in fact been made.
+
 Clicking any image in the gallery opens it with the prompt, seed, steps,
 guidance, size, model and date it was made, and buttons to download or
 delete it.

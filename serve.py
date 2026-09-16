@@ -28,6 +28,7 @@ def health():
         model=config.MODEL,
         revision=config.MODEL_REVISION,
         token_limit=limit,
+        busy=lock.locked(),
         idle_seconds=round(idle.idle_seconds()),
     )
 
