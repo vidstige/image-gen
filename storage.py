@@ -63,9 +63,14 @@ def gallery(limit: int = 60) -> list[dict]:
         reverse=True,
     )[:limit]
     return [
-        {"name": b.name, **(b.metadata or {})}
+        {"name": b.name, "created": b.time_created.isoformat(),
+         **(b.metadata or {})}
         for b in blobs
     ]
+
+
+def delete(name: str) -> None:
+    storage.Client().bucket(config.BUCKET).blob(name).delete()
 
 
 def download(name: str) -> bytes:

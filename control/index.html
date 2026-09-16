@@ -4,22 +4,58 @@
 <style>
   body { font: 15px system-ui; max-width: 60rem; margin: 2rem auto;
          padding: 0 1rem; background: #111; color: #eee; }
+  h1 { margin: 0 0 1rem; font-size: 1.4rem; }
   label { display: block; margin: .6rem 0 .2rem; color: #aaa; }
   input, textarea, button { font: inherit; width: 100%; padding: .4rem;
-         background: #1c1c1c; color: #eee; border: 1px solid #333; }
+         background: #1c1c1c; color: #eee; border: 1px solid #333;
+         border-radius: 3px; }
   .row { display: flex; gap: .6rem; }
   .row > * { flex: 1; }
-  button { cursor: pointer; margin-top: 1rem; }
+  button { cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+
+  .gpu { display: flex; align-items: center; gap: .75rem;
+         border: 1px solid #333; border-radius: 4px; padding: .7rem .9rem;
+         margin-bottom: 1.2rem; }
+  .gpu .state { font-weight: 600; flex: 1; }
+  .gpu button { width: auto; padding: .35rem 1rem; }
+  .dot { width: .7rem; height: .7rem; border-radius: 50%;
+         background: #666; flex: none; }
+  .dot.on { background: #3ddc84; }
+  .dot.busy { background: #e8b339; animation: pulse 1.2s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+
+  #go { margin-top: 1rem; }
   #gallery { display: grid; gap: .5rem; margin-top: 1.5rem;
          grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
-  #gallery img { width: 100%; display: block; }
+  #gallery img { width: 100%; display: block; cursor: pointer;
+         border-radius: 3px; }
   .note { color: #888; font-size: .85em; }
   .error { color: #f66; white-space: pre-wrap; }
+
+  dialog { background: #1a1a1a; color: #eee; border: 1px solid #333;
+           border-radius: 6px; max-width: 46rem; width: 92%; padding: 0; }
+  dialog::backdrop { background: rgba(0,0,0,.75); }
+  dialog img { width: 100%; display: block; }
+  .detail { padding: 1rem; }
+  .detail dl { display: grid; grid-template-columns: 8rem 1fr;
+               gap: .3rem .8rem; margin: 0 0 1rem; font-size: .9em; }
+  .detail dt { color: #888; }
+  .detail dd { margin: 0; word-break: break-word; }
+  .detail .row button, .detail .row a { width: auto; }
+  .detail a { display: inline-block; padding: .35rem 1rem; border: 1px solid #333;
+              border-radius: 3px; color: #eee; text-decoration: none;
+              background: #1c1c1c; }
+  .danger { border-color: #833; color: #f88; }
 </style>
 
 <h1>imgen</h1>
-<p id="power" class="note">…</p>
-<button id="toggle"></button>
+
+<div class="gpu">
+  <span id="dot" class="dot"></span>
+  <span id="state" class="state">checking…</span>
+  <button id="toggle" disabled>…</button>
+</div>
 
 <label>Prompt</label>
 <textarea id="prompt" rows="4"></textarea>
@@ -44,20 +80,33 @@
 <p id="error" class="error"></p>
 <div id="gallery"></div>
 
+<dialog id="detail">
+  <img id="detail-img">
+  <div class="detail">
+    <dl id="detail-fields"></dl>
+    <div class="row">
+      <a id="detail-download" download>Download</a>
+      <button id="detail-delete" class="danger">Delete</button>
+      <button id="detail-close">Close</button>
+    </div>
+  </div>
+</dialog>
+
 <script>
 const defaults = __DEFAULTS__;
 const fields = ["negative_prompt", "seed", "steps", "guidance",
                 "width", "height", "count"];
-for (const [key, value] of Object.entries(defaults))
-  if (document.getElementById(key)) document.getElementById(key).value = value;
-
 const $ = id => document.getElementById(id);
 const say = (id, text) => $(id).textContent = text;
 
-async function call(path, body) {
-  const options = body
-    ? {method: "POST", headers: {"Content-Type": "application/json"},
-       body: JSON.stringify(body)}
+for (const [key, value] of Object.entries(defaults))
+  if ($(key)) $(key).value = value;
+
+async function call(path, body, method) {
+  const options = body || method
+    ? {method: method || "POST",
+       headers: body ? {"Content-Type": "application/json"} : {},
+       body: body ? JSON.stringify(body) : undefined}
     : {};
   const response = await fetch(path, options);
   const data = await response.json();
@@ -65,37 +114,48 @@ async function call(path, body) {
   return data;
 }
 
+// --- GPU ---------------------------------------------------------------
 let running = false;
-const rate = `$${defaults.cost_per_hour.toFixed(2)}/h`;
+
+// Anything that is neither off nor serving is a transition; the button
+// stays out of the way until it settles.
+function show(state, loaded) {
+  const off = state === "TERMINATED" || state === "SUSPENDED";
+  running = state === "RUNNING";
+  const busy = !off && !(running && loaded);
+  const label = off ? "off"
+    : running && loaded ? "running"
+    : running ? "starting — loading model"
+    : state === "STOPPING" || state === "SUSPENDING" ? "stopping"
+    : "starting";
+  $("dot").className = "dot" + (busy ? " busy" : running ? " on" : "");
+  say("state", `GPU ${label}`);
+  say("toggle", running ? "Stop" : "Start");
+  $("toggle").disabled = busy;
+}
 
 async function power() {
   const data = await call("/power");
-  const state = data.state.toLowerCase();
-  running = data.state === "RUNNING";
-  const ready = data.token_limit
-    ? `model loaded, prompts cut at ${data.token_limit} tokens`
-    : running ? "loading the model…" : "";
-  say("power", `GPU ${state} — ${rate} while on, stops itself after ` +
-      `${defaults.idle_minutes} min idle` + (ready ? ` — ${ready}` : ""));
-  say("toggle", running ? "Stop GPU" : `Start GPU (${rate})`);
-  $("toggle").disabled = false;
+  show(data.state, Boolean(data.token_limit));
+  if (data.token_limit)
+    say("tokens", `prompts are cut past ${data.token_limit} tokens`);
 }
 
 $("toggle").onclick = async () => {
   const on = !running;
-  say("toggle", on ? "starting…" : "stopping…");
   $("toggle").disabled = true;
+  say("state", on ? "GPU starting" : "GPU stopping");
+  $("dot").className = "dot busy";
   await call("/power", {on});
   power();
 };
 
-// The VM takes a minute to boot and a few more to load the model, and it
-// can stop itself at any time, so the page keeps asking.
-setInterval(power, 10000);
+setInterval(power, 5000);
 
+// --- generate ----------------------------------------------------------
 $("go").onclick = async () => {
   say("error", "");
-  say("status", running ? "generating…" : "starting GPU, then generating…");
+  say("status", running ? "generating…" : "starting the GPU, then generating…");
   try {
     const body = {prompt: $("prompt").value};
     for (const f of fields) body[f] = $(f).value;
@@ -112,12 +172,50 @@ $("go").onclick = async () => {
   power();
 };
 
+// --- gallery and details -----------------------------------------------
+const LABELS = {created: "Date", prompt: "Prompt",
+                negative_prompt: "Negative", seed: "Seed", steps: "Steps",
+                guidance: "Guidance", size: "Size", model: "Model",
+                revision: "Revision"};
+
+function open_detail(image) {
+  $("detail-img").src = `/image/${image.name}`;
+  $("detail-download").href = `/image/${image.name}`;
+  $("detail-download").setAttribute("download", image.name);
+  $("detail-fields").innerHTML = Object.keys(LABELS)
+    .filter(k => image[k])
+    .map(k => `<dt>${LABELS[k]}</dt><dd>${escape_html(
+      k === "created" ? new Date(image[k]).toLocaleString() : image[k])}</dd>`)
+    .join("");
+  $("detail-delete").onclick = async () => {
+    if (!confirm(`Delete ${image.name}?`)) return;
+    await call(`/image/${image.name}`, null, "DELETE");
+    $("detail").close();
+    gallery();
+  };
+  $("detail").showModal();
+}
+
+function escape_html(text) {
+  const node = document.createElement("span");
+  node.textContent = text;
+  return node.innerHTML;
+}
+
 async function gallery() {
   const data = await call("/gallery");
-  $("gallery").innerHTML = data.images.map(i =>
-    `<a href="/image/${i.name}" title="${i.prompt || ""} [seed ${i.seed}]">
-       <img loading="lazy" src="/image/${i.name}"></a>`).join("");
+  $("gallery").innerHTML = "";
+  for (const image of data.images) {
+    const img = document.createElement("img");
+    img.loading = "lazy";
+    img.src = `/image/${image.name}`;
+    img.title = image.prompt || image.name;
+    img.onclick = () => open_detail(image);
+    $("gallery").append(img);
+  }
 }
+
+$("detail-close").onclick = () => $("detail").close();
 
 power();
 gallery();

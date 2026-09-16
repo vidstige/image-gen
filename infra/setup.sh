@@ -43,8 +43,9 @@ gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
   --member=serviceAccount:$gpu --role=roles/storage.objectAdmin
 gcloud storage buckets add-iam-policy-binding gs://$CODE \
   --member=serviceAccount:$gpu --role=roles/storage.objectViewer
+# The front end lists and serves images, and deletes them on request.
 gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
-  --member=serviceAccount:$control --role=roles/storage.objectViewer
+  --member=serviceAccount:$control --role=roles/storage.objectUser
 
 # The predefined roles that can start and stop an instance grant far more
 # than that, so use a custom role bound to the one instance.

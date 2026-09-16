@@ -46,7 +46,6 @@ def defaults() -> dict:
         "count": config.BATCH,
         "negative_prompt": config.NEGATIVE_PROMPT,
         "model": config.MODEL,
-        "cost_per_hour": config.VM_COST_PER_HOUR,
         "idle_minutes": config.IDLE_MINUTES,
     }
 
@@ -109,3 +108,9 @@ def gallery():
 def image(name: str):
     """Images are served through here, so IAP guards them too."""
     return storage.download(name), 200, {"Content-Type": "image/png"}
+
+
+@app.delete("/image/<path:name>")
+def remove(name: str):
+    storage.delete(name)
+    return jsonify(deleted=name)

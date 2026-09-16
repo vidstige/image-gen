@@ -14,12 +14,8 @@ VM_DISK_GB = 200
 BUCKET = "your-project-images"
 PORT = 8000
 
-# Shown in the UI so the price of the expensive action is visible before
-# it is taken. Spot, europe-west4, from the billing catalogue:
-# 48 vCPU x 0.02232 + 180 GiB x 0.00268 + one card at 0.52640.
 # Smaller g4 shapes get a 48 GB vGPU slice; this one gets the whole
 # 96 GB card, which is what lets the model run without offload.
-VM_COST_PER_HOUR = 2.08
 IDLE_MINUTES = 5
 
 # Pinned to a revision so weights cannot change under us. Defaults below are

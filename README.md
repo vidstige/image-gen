@@ -61,9 +61,14 @@ Power the GPU on or off by hand, and see where it is:
     ./infra/power.sh on
     ./infra/power.sh off
 
-The page does the same thing: it shows the VM's state, refreshes every
-ten seconds while it boots, and has a start/stop button labelled with
-the hourly rate. Generating also starts the VM on its own if it is off.
+The page does the same thing: a lamp and a start/stop button together at
+the top, polled every five seconds, amber while it is starting, loading
+the model or stopping, and green once it is actually serving. Generating
+starts the VM on its own if it is off.
+
+Clicking any image in the gallery opens it with the prompt, seed, steps,
+guidance, size, model and date it was made, and buttons to download or
+delete it.
 
 One image from the command line, on the box:
 
@@ -75,15 +80,15 @@ Tests, which are CPU-only and take a second:
 
 ## Costs
 
-The GPU is the whole bill: about $2.08/hour while running, nothing while
-stopped except the disk. It stops itself after five idle minutes, the page
-shows the rate before you start it, and a budget alert fires at 50%, 90%
-and 100% of 200 SEK.
+The GPU is the whole bill, and nothing but the disk costs anything while
+it is stopped. It stops itself after five idle minutes, and a budget
+alert fires at 50%, 90% and 100% of 200 SEK.
 
-That figure is the spot price from the billing catalogue: 48 vCPU at
-$0.02232, 180 GiB at $0.00268 and one card at $0.52640 per hour. An
-image at the default 50 steps takes 48 seconds, so it costs about three
-cents.
+At the time of writing a spot `g4-standard-48` was about $2.08/hour, so
+an image at the default 50 steps — 48 seconds — cost around three cents.
+That number is not in the code or the page: a hard-coded price goes
+stale silently, which is worse than no price at all. Check the current
+one against the billing catalogue, or the budget alert.
 
 ## Notes
 
