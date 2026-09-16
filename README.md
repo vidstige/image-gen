@@ -49,10 +49,10 @@ example and fill it in:
     cp .env.example .env
 
 `config.py` reads it, `infra/env.sh` sources it for the shell scripts,
-and `deploy.sh` passes the values to Cloud Run as environment variables.
-The GPU VM is never sent the file at all: it asks the metadata server
-for its project, and `vm.sh` puts the two bucket names in instance
-metadata, so the source tarball carries no identifiers.
+`deploy.sh` passes the values to Cloud Run as environment variables, and
+`push.sh` ships it to the GPU VM alongside the source. The one thing
+that cannot travel that way is the name of the bucket the source comes
+from, so `vm.sh` puts that in instance metadata.
 
 ## Running it
 

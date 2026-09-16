@@ -12,20 +12,11 @@ VENV=/opt/venv
 SRC=/opt/imgen
 export HF_HOME=/opt/hf
 
-meta() {
-  curl -sf -H "Metadata-Flavor: Google" \
-    "http://metadata.google.internal/computeMetadata/v1/$1"
-}
-
-# Which project and buckets this box belongs to is not baked into the
-# image or shipped with the source; it is asked for at boot.
-export IMGEN_PROJECT=$(meta project/project-id)
-export IMGEN_BUCKET=$(meta instance/attributes/images-bucket)
-CODE=$(meta instance/attributes/code-bucket)
-
-# So an ssh session can run generate.py without setting them by hand.
-printf 'export IMGEN_PROJECT=%s\nexport IMGEN_BUCKET=%s\nexport HF_HOME=%s\n' \
-  "$IMGEN_PROJECT" "$IMGEN_BUCKET" "$HF_HOME" > /etc/profile.d/imgen.sh
+# Which bucket holds the code is the one thing that cannot come from the
+# code; vm.sh puts it in instance metadata. The rest is in the .env that
+# ships with the source, which config.py reads.
+CODE=$(curl -sf -H "Metadata-Flavor: Google" \
+  http://metadata.google.internal/computeMetadata/v1/instance/attributes/code-bucket)
 
 mkdir -p $SRC $HF_HOME
 

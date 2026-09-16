@@ -17,7 +17,7 @@ gcloud compute instances create $VM --project=$PROJECT --zone=$ZONE \
   --subnet=$SUBNET --no-address \
   --scopes=cloud-platform \
   --service-account=imgen-gpu@$PROJECT.iam.gserviceaccount.com \
-  --metadata=code-bucket=$CODE,images-bucket=$BUCKET \
+  --metadata=code-bucket=$CODE \
   --metadata-from-file=startup-script=startup.sh
 
 gcloud compute instances add-iam-policy-binding $VM --zone=$ZONE \
