@@ -136,21 +136,49 @@ open kernel module refuses to drive — hence the GRID driver install in
 If the quota is ever granted, moving back to on-demand is one flag in
 `infra/vm.sh`.
 
-## M0 result
+## Where the milestones stand
 
-Four images from Qwen-Image are in the bucket and in `m0/`. The model is
-ungated, Apache-2.0, and carries no safety classifier, which is why it
-was chosen over FLUX.1-dev without a HuggingFace token.
+**M0 — output clears the bar.** Qwen-Image, ungated and Apache-2.0, with
+no safety classifier. Photoreal work is strong: skin texture, hands, fur,
+rim light and atmosphere all hold up at 1328x1328 and 50 steps. Text
+inside an image does not; a prompt asking for labels gets confident
+gibberish. Images in `m0/` and in the bucket.
 
-Photoreal work clears the bar comfortably: skin texture, hands, fog and
-raking light all hold up at 1328x1328 and 50 steps. Line art is clean.
-Text inside an image is not reliable, and a prompt asking for labels
-gets confident gibberish, so treat legible text as out of reach until
-tested properly.
+**M1 — a box that generates on demand.** `./generate.py "..." --seed 1
+--out gs://.../test.png` writes a correct image. 48 seconds of denoising
+at 1.03 it/s, no offload, so about three cents an image.
 
-One hard constraint the machine type does not advertise: `g4-standard-24`
-reports a 48 GB vGPU slice, not the card's full 96 GB. Qwen-Image needs
-about 55 GB for the transformer and text encoder together, so it does
-not fit and these four were generated with CPU offload, which the design
-otherwise rules out. Either a shape that exposes the whole card or a
-model that fits 48 GB is needed before M1 is really passed.
+**M2 — an HTTP API.** `curl` from another host in the VPC returns an
+image. The model is resident rather than reloaded: between requests one
+process holds 65 GB of the 97 GB card. Note that the exit test as
+written — second call much faster than the first — cannot show this
+here, because the model loads at import during boot, so the *first* API
+call is already warm. Both calls take 50 s, of which 48 s is the
+denoising loop. The VRAM held while idle is the direct evidence.
+
+**M3 — start/stop and idle shutdown.** Verified by watching instance
+state, not by reading code: last request 22:07, `STOPPING` at 22:17,
+`TERMINATED` at 22:18. It has since done the same thing unattended after
+a batch. A 200 SEK budget alert is in place.
+
+**M4 — front end.** Deployed with IAP on and the account allowlisted,
+but see the consent screen note above; it answers 502 until that is done
+by hand, so the sign-in and the refusal of a second account are both
+still unverified.
+
+## The card
+
+`g4-standard-48` gets the whole 96 GB card. The smaller g4 shapes get a
+48 GB vGPU slice instead, which is not something the machine type
+advertises and not enough for this model — it needs about 55 GB for the
+transformer and text encoder together. Three further things are not
+guessable: G4 rejects `pd-balanced` and needs `hyperdisk-balanced`; the
+`pytorch-latest-gpu` image family no longer exists; and Blackwell needs
+the R580 branch with its *open* kernel module, built with gcc-12 because
+that is what the 6.8 kernel was built with.
+
+On-demand quota for this card is denied, on a new project and on an old
+one with billing history alike, so the VM is spot. That suits a design
+whose GPU is off by default anyway: preemption mostly means it turned
+off early, and the instance stops rather than being deleted, so the
+weights on its disk survive.
