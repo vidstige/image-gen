@@ -66,22 +66,32 @@ async function call(path, body) {
 }
 
 let running = false;
+const rate = `$${defaults.cost_per_hour.toFixed(2)}/h`;
 
 async function power() {
   const data = await call("/power");
+  const state = data.state.toLowerCase();
   running = data.state === "RUNNING";
-  say("power", `GPU ${data.state.toLowerCase()} — ` +
-      `$${defaults.cost_per_hour.toFixed(2)}/h while on, ` +
-      `stops itself after ${defaults.idle_minutes} min idle` +
-      (data.token_limit ? ` — prompts cut at ${data.token_limit} tokens` : ""));
-  say("toggle", running ? "Stop GPU" : `Start GPU ($${defaults.cost_per_hour.toFixed(2)}/h)`);
+  const ready = data.token_limit
+    ? `model loaded, prompts cut at ${data.token_limit} tokens`
+    : running ? "loading the model…" : "";
+  say("power", `GPU ${state} — ${rate} while on, stops itself after ` +
+      `${defaults.idle_minutes} min idle` + (ready ? ` — ${ready}` : ""));
+  say("toggle", running ? "Stop GPU" : `Start GPU (${rate})`);
+  $("toggle").disabled = false;
 }
 
 $("toggle").onclick = async () => {
-  say("toggle", "…");
-  await call("/power", {on: !running});
-  setTimeout(power, 3000);
+  const on = !running;
+  say("toggle", on ? "starting…" : "stopping…");
+  $("toggle").disabled = true;
+  await call("/power", {on});
+  power();
 };
+
+// The VM takes a minute to boot and a few more to load the model, and it
+// can stop itself at any time, so the page keeps asking.
+setInterval(power, 10000);
 
 $("go").onclick = async () => {
   say("error", "");

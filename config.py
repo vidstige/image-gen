@@ -20,7 +20,7 @@ PORT = 8000
 # Smaller g4 shapes get a 48 GB vGPU slice; this one gets the whole
 # 96 GB card, which is what lets the model run without offload.
 VM_COST_PER_HOUR = 2.08
-IDLE_MINUTES = 10
+IDLE_MINUTES = 5
 
 # Pinned to a revision so weights cannot change under us. Defaults below are
 # from the model card, not from the library.
