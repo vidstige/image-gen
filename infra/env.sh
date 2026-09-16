@@ -1,7 +1,7 @@
 # Mirrors config.py. Sourced by every script in this directory.
 # Identifiers come from ../.env, which is not committed.
 set -a
-. "$(dirname "${BASH_SOURCE[0]}")/../.env"
+. "$(dirname "${BASH_SOURCE[0]:-$0}")/../.env"
 set +a
 
 PROJECT=$IMGEN_PROJECT
