@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# Ship the source the GPU VM runs. Restarts it only if it is up.
+# Ship the source the GPU VM runs — and nothing else. No .env: the box
+# learns its project and bucket from instance metadata at boot.
 set -euo pipefail
 cd "$(dirname "$0")/.." && source infra/env.sh
 
-tar cz config.py pipeline.py params_io.py storage.py idle.py \
-  serve.py generate.py requirements-gpu.txt .env \
+tar cz config.py params.py storage.py gpu \
   | gcloud storage cp - gs://$CODE/src.tar.gz
 
 state=$(gcloud compute instances describe $VM --zone=$ZONE \

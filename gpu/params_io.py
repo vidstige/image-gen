@@ -3,7 +3,7 @@
 from dataclasses import asdict
 
 import config
-from pipeline import Params
+from params import Params
 
 
 def from_dict(payload: dict) -> Params:

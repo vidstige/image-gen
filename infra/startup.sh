@@ -4,9 +4,6 @@
 # and started again — or preempted — comes back in under a minute.
 set -euo pipefail
 
-# The bucket is not baked in; vm.sh passes it as instance metadata.
-CODE=$(curl -sf -H "Metadata-Flavor: Google" \
-  http://metadata.google.internal/computeMetadata/v1/instance/attributes/code-bucket)
 # Blackwell needs the R580 branch and its OPEN kernel module. The
 # proprietary module loads and then refuses the device, and the kernel is
 # built with gcc-12, so the module has to be too.
@@ -14,6 +11,21 @@ DRIVER=https://storage.googleapis.com/nvidia-drivers-us-public/GRID/vGPU19.6/NVI
 VENV=/opt/venv
 SRC=/opt/imgen
 export HF_HOME=/opt/hf
+
+meta() {
+  curl -sf -H "Metadata-Flavor: Google" \
+    "http://metadata.google.internal/computeMetadata/v1/$1"
+}
+
+# Which project and buckets this box belongs to is not baked into the
+# image or shipped with the source; it is asked for at boot.
+export IMGEN_PROJECT=$(meta project/project-id)
+export IMGEN_BUCKET=$(meta instance/attributes/images-bucket)
+CODE=$(meta instance/attributes/code-bucket)
+
+# So an ssh session can run generate.py without setting them by hand.
+printf 'export IMGEN_PROJECT=%s\nexport IMGEN_BUCKET=%s\nexport HF_HOME=%s\n' \
+  "$IMGEN_PROJECT" "$IMGEN_BUCKET" "$HF_HOME" > /etc/profile.d/imgen.sh
 
 mkdir -p $SRC $HF_HOME
 
@@ -30,13 +42,13 @@ gcloud storage cat "gs://$CODE/src.tar.gz" | tar xz -C $SRC
 cd $SRC
 
 [ -d $VENV ] || python3 -m venv $VENV
-[ -f .deps ] || { $VENV/bin/pip install -q -r requirements-gpu.txt && touch .deps; }
+[ -f .deps ] || { $VENV/bin/pip install -q -r gpu/requirements-gpu.txt && touch .deps; }
 
 # Weights land on the disk, pinned. Only the first boot pays for this.
-$VENV/bin/python - <<'PY'
+PYTHONPATH=$SRC $VENV/bin/python - <<'PY'
 import config
 from huggingface_hub import snapshot_download
 snapshot_download(config.MODEL, revision=config.MODEL_REVISION, max_workers=16)
 PY
 
-exec $VENV/bin/python serve.py
+exec env PYTHONPATH=$SRC $VENV/bin/python gpu/serve.py

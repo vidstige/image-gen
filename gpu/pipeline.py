@@ -1,23 +1,9 @@
 """Model loading and image generation. No cloud, no HTTP, no filtering."""
 
 import inspect
-from dataclasses import dataclass
 
 import config
-
-Size = tuple[int, int]
-
-
-@dataclass
-class Params:
-    prompt: str
-    negative_prompt: str = config.NEGATIVE_PROMPT
-    seed: int = 0
-    steps: int = config.STEPS
-    guidance: float = config.GUIDANCE
-    width: int = config.WIDTH
-    height: int = config.HEIGHT
-    count: int = 1
+from params import Params
 
 
 def load():

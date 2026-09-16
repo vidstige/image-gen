@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 from google.cloud import storage
 
 import config
-from pipeline import Params
+from params import Params
 
 Location = tuple[str, str]  # bucket, object name
 

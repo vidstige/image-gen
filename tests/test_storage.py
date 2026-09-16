@@ -1,5 +1,5 @@
 from storage import name_for, parse_uri, slug
-from pipeline import Params
+from params import Params
 
 
 def params(prompt: str = "a red fox") -> Params:

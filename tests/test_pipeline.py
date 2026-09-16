@@ -1,5 +1,6 @@
 import config
-from pipeline import Params, supported
+from params import Params
+from pipeline import supported
 
 
 class FakePipe:

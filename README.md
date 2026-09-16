@@ -23,15 +23,22 @@ serves one person serially, and object names carry the metadata.
 | file | what it holds |
 | --- | --- |
 | `config.py` | every tunable, imported by all three entry points |
-| `pipeline.py` | model load and generation; no cloud, no HTTP |
+| `params.py` | the knobs one generation takes |
 | `storage.py` | bucket I/O and the object naming that carries metadata |
-| `params_io.py` | JSON form of the generation parameters |
-| `generate.py` | the CLI (M1) |
-| `serve.py` | the HTTP API on the GPU box (M2) |
-| `idle.py` | the idle timer that stops the VM (M3) |
+| `gpu/pipeline.py` | model load and generation; no cloud, no HTTP |
+| `gpu/params_io.py` | JSON form of the generation parameters |
+| `gpu/generate.py` | the CLI (M1) |
+| `gpu/serve.py` | the HTTP API on the GPU box (M2) |
+| `gpu/idle.py` | the idle timer that stops the VM (M3) |
 | `control/` | the Cloud Run front end and VM power control (M4) |
 | `infra/` | provisioning and deployment scripts |
 | `m0/` | disposable model-comparison script |
+
+The three files at the root are the ones both halves need. Everything
+under `gpu/` is what `push.sh` ships to the box and nothing else goes
+there; everything under `control/` is what the Cloud Run image gets.
+`Params` lives in its own module so the front end can talk about a
+generation without importing the model code.
 
 ## Configuration
 
@@ -42,9 +49,10 @@ example and fill it in:
     cp .env.example .env
 
 `config.py` reads it, `infra/env.sh` sources it for the shell scripts,
-`deploy.sh` passes the values to Cloud Run as environment variables, and
-the GPU VM learns its code bucket from instance metadata and the rest
-from the `.env` that `push.sh` ships alongside the source.
+and `deploy.sh` passes the values to Cloud Run as environment variables.
+The GPU VM is never sent the file at all: it asks the metadata server
+for its project, and `vm.sh` puts the two bucket names in instance
+metadata, so the source tarball carries no identifiers.
 
 ## Running it
 
@@ -98,7 +106,8 @@ delete it.
 
 One image from the command line, on the box:
 
-    ./generate.py "a prompt" --seed 1 --out gs://$IMGEN_BUCKET/test.png
+    cd /opt/imgen && PYTHONPATH=. /opt/venv/bin/python gpu/generate.py \
+      "a prompt" --seed 1 --out gs://$IMGEN_BUCKET/test.png
 
 Tests, which are CPU-only and take a second:
 
