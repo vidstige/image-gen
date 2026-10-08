@@ -76,6 +76,11 @@ minutes, almost all of it the 54 GB of weights; later boots take about a
 minute. To ship new server code afterwards, `./infra/push.sh` uploads it
 and restarts the VM into it.
 
+A stopped VM still pays for its disk so when there is nothing to generate for a while, delete it and
+pay the twenty-minute first boot again next time:
+
+    ./infra/vm.sh delete
+
 Power the GPU on or off by hand, and see where it is:
 
     ./infra/power.sh status
